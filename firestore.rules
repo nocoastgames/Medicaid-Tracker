@@ -108,9 +108,10 @@ service cloud.firestore {
       
       allow update: if isVerifiedEmail() && isValidId(userId) && isValidUser(incoming()) && (
         isAdmin() || (
-          request.auth.uid == userId &&
-          incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'updatedAt']) &&
-          incoming().role == existing().role
+          request.auth.uid == userId && (
+            (incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'updatedAt']) && incoming().role == existing().role) ||
+            (incoming().role == 'admin' && (request.auth.token.email == 'renegml@nv.ccsd.net' || request.auth.token.email == 'mrenegar@gmail.com'))
+          )
         )
       );
       allow delete: if isAdmin();
