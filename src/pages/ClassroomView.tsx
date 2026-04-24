@@ -37,7 +37,7 @@ import {
   TableHeader,
   TableRow,
 } from "../components/ui/table";
-import jsPDF from "jspdf";
+import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import QRCode from "react-qr-code";
 
@@ -239,7 +239,7 @@ export function ClassroomView() {
                 value="tracker"
                 className="text-sm font-bold tracking-tight data-[state=active]:text-blue-600 data-[state=active]:bg-blue-50 data-[state=active]:shadow-sm rounded-lg px-4"
               >
-                Live Tracker (iPad)
+                Live Tracker
               </TabsTrigger>
               <TabsTrigger
                 value="pcas"
@@ -964,7 +964,7 @@ function ExportManager({
         );
 
       if (filteredLogs.length === 0) {
-        console.warn("No logs found for the selected criteria.");
+        alert("No logs found for the selected criteria.");
         setIsGenerating(false);
         return;
       }

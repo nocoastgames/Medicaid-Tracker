@@ -29,6 +29,9 @@ export function PcaMobileView() {
 
     const [selectedPca, setSelectedPca] = useState<any>(null);
     const [selectedStudent, setSelectedStudent] = useState<any>(null);
+    const [viewMode, setViewMode] = useState<'logging' | 'reporting'>('logging');
+    const [reportDate, setReportDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+    const [reportLogs, setReportLogs] = useState<any[]>([]);
 
     useEffect(() => {
         setupSession();
@@ -101,6 +104,25 @@ export function PcaMobileView() {
         const logs = snap.docs.map(d => ({ id: d.id, ...d.data() } as any)).filter((l:any) => !l.endTime);
         setActiveLogs(logs);
     };
+
+    const loadReportLogs = async (date: string) => {
+        if (!classroomId || !selectedStudent || !selectedPca) return;
+        const q = query(collection(db, 'serviceLogs'), 
+            where('classroomId', '==', classroomId), 
+            where('date', '==', date)
+        );
+        const snap = await getDocs(q);
+        const logs = snap.docs
+           .map(d => ({ id: d.id, ...d.data() } as any))
+           .filter(l => l.studentId === selectedStudent.id && l.pcaId === selectedPca.id && l.endTime);
+        setReportLogs(logs.sort((a,b) => b.startTime - a.startTime));
+    };
+
+    useEffect(() => {
+        if (viewMode === 'reporting' && selectedStudent && selectedPca) {
+            loadReportLogs(reportDate);
+        }
+    }, [viewMode, reportDate, selectedStudent, selectedPca]);
 
     const startService = async (service: string) => {
         if (!selectedPca || !selectedStudent || !classroomId) return;
@@ -211,47 +233,100 @@ export function PcaMobileView() {
                         </div>
                         
                         <div className="bg-slate-800 text-white p-4 rounded-xl shadow-lg">
-                            <p className="text-sm font-medium text-slate-400 mb-1">Logging services for</p>
+                            <p className="text-sm font-medium text-slate-400 mb-1">Services for</p>
                             <p className="text-2xl font-bold">{selectedStudent.name}</p>
                         </div>
 
-                        {currentActiveForSelection.length > 0 && (
-                            <div>
-                                <h3 className="text-sm font-bold text-amber-600 uppercase mb-3">Currently Active</h3>
-                                <div className="space-y-3">
-                                    {currentActiveForSelection.map((log:any) => (
-                                        <Card key={log.id} className="border-amber-200 bg-amber-50 shadow-none border-2 border-dashed">
-                                            <CardContent className="p-4 flex items-center justify-between">
-                                                <div>
-                                                    <p className="font-bold text-slate-800">{log.serviceType}</p>
-                                                    <p className="text-sm text-slate-500">Started at {format(log.startTime, 'h:mm a')}</p>
-                                                </div>
-                                                <Button onClick={() => stopService(log.id)} className="bg-red-500 hover:bg-red-600 font-bold">Stop</Button>
-                                            </CardContent>
-                                        </Card>
-                                    ))}
+                        <div className="flex bg-white rounded-lg p-1 border border-slate-200">
+                            <button 
+                                onClick={() => setViewMode('logging')}
+                                className={`flex-1 py-2 text-sm font-bold rounded-md transition-colors ${viewMode === 'logging' ? 'bg-blue-50 text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                            >
+                                Log Data
+                            </button>
+                            <button 
+                                onClick={() => setViewMode('reporting')}
+                                className={`flex-1 py-2 text-sm font-bold rounded-md transition-colors ${viewMode === 'reporting' ? 'bg-blue-50 text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                            >
+                                View Past Data
+                            </button>
+                        </div>
+
+                        {viewMode === 'logging' && (
+                            <div className="space-y-6 animate-in fade-in">
+                                {currentActiveForSelection.length > 0 && (
+                                    <div>
+                                        <h3 className="text-sm font-bold text-amber-600 uppercase mb-3">Currently Active</h3>
+                                        <div className="space-y-3">
+                                            {currentActiveForSelection.map((log:any) => (
+                                                <Card key={log.id} className="border-amber-200 bg-amber-50 shadow-none border-2 border-dashed">
+                                                    <CardContent className="p-4 flex items-center justify-between">
+                                                        <div>
+                                                            <p className="font-bold text-slate-800">{log.serviceType}</p>
+                                                            <p className="text-sm text-slate-500">Started at {format(log.startTime, 'h:mm a')}</p>
+                                                        </div>
+                                                        <Button onClick={() => stopService(log.id)} className="bg-red-500 hover:bg-red-600 font-bold">Stop</Button>
+                                                    </CardContent>
+                                                </Card>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div>
+                                    <h3 className="text-sm font-bold text-slate-500 uppercase mb-3 mt-6">Start New Service</h3>
+                                    <div className="space-y-2">
+                                        {uncompletedServices.map(service => (
+                                            <button 
+                                                key={service} 
+                                                onClick={() => startService(service)}
+                                                className="w-full text-left bg-white p-4 rounded-xl border border-slate-200 shadow-sm active:bg-blue-50 hover:border-blue-400 transition-colors font-bold text-slate-700 flex justify-between items-center"
+                                            >
+                                                {service}
+                                                <span className="text-blue-500">→</span>
+                                            </button>
+                                        ))}
+                                        {uncompletedServices.length === 0 && (
+                                            <p className="text-slate-500 italic text-sm">All services are currently active for this student.</p>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         )}
 
-                        <div>
-                            <h3 className="text-sm font-bold text-slate-500 uppercase mb-3 mt-6">Start New Service</h3>
-                            <div className="space-y-2">
-                                {uncompletedServices.map(service => (
-                                    <button 
-                                        key={service} 
-                                        onClick={() => startService(service)}
-                                        className="w-full text-left bg-white p-4 rounded-xl border border-slate-200 shadow-sm active:bg-blue-50 hover:border-blue-400 transition-colors font-bold text-slate-700 flex justify-between items-center"
-                                    >
-                                        {service}
-                                        <span className="text-blue-500">→</span>
-                                    </button>
-                                ))}
-                                {uncompletedServices.length === 0 && (
-                                    <p className="text-slate-500 italic text-sm">All services are currently active for this student.</p>
-                                )}
+                        {viewMode === 'reporting' && (
+                            <div className="space-y-4 animate-in fade-in">
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold text-slate-500 uppercase">Select Date</label>
+                                    <input 
+                                        type="date" 
+                                        className="w-full p-3 rounded-lg border border-slate-300" 
+                                        value={reportDate}
+                                        onChange={(e) => setReportDate(e.target.value)}
+                                    />
+                                </div>
+                                <div className="space-y-3 mt-4">
+                                    <h3 className="text-sm font-bold text-slate-500 uppercase">Completed Services</h3>
+                                    {reportLogs.length === 0 ? (
+                                        <p className="text-slate-500 text-sm italic">No completed services found on this date.</p>
+                                    ) : (
+                                        reportLogs.map(log => (
+                                            <div key={log.id} className="bg-white p-4 justify-between items-center flex rounded-xl border border-slate-200 shadow-sm">
+                                                <div>
+                                                    <p className="font-bold text-slate-800">{log.serviceType}</p>
+                                                    <p className="text-xs text-slate-500 mt-1">
+                                                        {format(log.startTime, 'h:mm a')} - {log.endTime ? format(log.endTime, 'h:mm a') : 'Ongoing'}
+                                                    </p>
+                                                </div>
+                                                <div className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded">
+                                                    {log.endTime ? Math.max(1, Math.round((log.endTime - log.startTime) / 60000)) + ' min' : ''}
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
                             </div>
-                        </div>
+                        )}
 
                     </div>
                 )}
