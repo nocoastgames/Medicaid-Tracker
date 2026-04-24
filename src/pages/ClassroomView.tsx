@@ -750,18 +750,18 @@ function ServiceLogsManager({
         date,
         startTime: startD.getTime(),
         endTime: endD.getTime(),
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       };
 
       await setDoc(doc(db, "serviceLogs", id), docData);
       fetchLogs();
-      alert("Log added successfully!");
     } catch (e) {
       handleFirestoreError(e, "create", "serviceLogs", user);
     }
   };
 
   const deleteLog = async (id: string) => {
-    if (!confirm("Delete this record?")) return;
     try {
       await deleteDoc(doc(db, "serviceLogs", id));
       fetchLogs();
@@ -975,7 +975,7 @@ function ExportManager({
         );
 
       if (filteredLogs.length === 0) {
-        alert("No logs found for the selected criteria.");
+        console.warn("No logs found for the selected criteria.");
         setIsGenerating(false);
         return;
       }
@@ -1087,7 +1087,6 @@ function ExportManager({
       pdf.save(`Medicaid_Logs_${exportStartDate}_to_${exportEndDate}.pdf`);
     } catch (error) {
       console.error("Error generating PDF:", error);
-      alert("Failed to generate PDF.");
     } finally {
       setIsGenerating(false);
     }

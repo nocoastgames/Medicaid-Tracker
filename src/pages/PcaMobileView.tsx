@@ -113,7 +113,7 @@ export function PcaMobileView() {
             await setDoc(newRef, payload);
             await loadActiveLogs();
         } catch (e: any) {
-            alert('Failed to start service: ' + e.message);
+            console.error('Failed to start service: ', e);
         }
     };
 
@@ -125,7 +125,7 @@ export function PcaMobileView() {
             });
             await loadActiveLogs();
         } catch (e: any) {
-            alert('Failed to stop service: ' + e.message);
+            console.error('Failed to stop service: ', e);
         }
     };
 

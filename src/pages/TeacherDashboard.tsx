@@ -49,7 +49,7 @@ export function TeacherDashboard() {
     };
 
     const deleteClassroom = async (id: string) => {
-        if (!user || !confirm("Are you sure? This doesn't auto-delete students/PCAs inside it in this demo.")) return;
+        if (!user) return;
         try {
             await deleteDoc(doc(db, 'classrooms', id));
             loadClassrooms();
