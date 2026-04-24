@@ -14,7 +14,7 @@ export function AdminDashboard() {
     const [classrooms, setClassrooms] = useState<any[]>([]);
     const [editingClassroom, setEditingClassroom] = useState<any>(null);
     const [newClassName, setNewClassName] = useState("");
-    const [newClassTeacherId, setNewClassTeacherId] = useState("");
+    const [newClassTeacherIds, setNewClassTeacherIds] = useState<string[]>([]);
     const [deletingClassroom, setDeletingClassroom] = useState<any>(null);
     const [isCreatingClassroom, setIsCreatingClassroom] = useState(false);
     const { user } = useAuth();
@@ -84,7 +84,7 @@ export function AdminDashboard() {
         try {
             await updateDoc(doc(db, 'classrooms', editingClassroom.id), {
                 name: newClassName.trim() || editingClassroom.name,
-                teacherId: newClassTeacherId || editingClassroom.teacherId
+                teacherIds: newClassTeacherIds
             });
             loadClassrooms();
             setEditingClassroom(null);
@@ -94,18 +94,18 @@ export function AdminDashboard() {
     };
 
     const confirmCreateClassroom = async () => {
-        if (!user || !newClassName.trim() || !newClassTeacherId) return;
+        if (!user || !newClassName.trim() || newClassTeacherIds.length === 0) return;
         try {
             const newRef = doc(collection(db, 'classrooms'));
             await setDoc(newRef, {
                 name: newClassName.trim(),
-                teacherId: newClassTeacherId,
+                teacherIds: newClassTeacherIds,
                 createdAt: Date.now()
             });
             loadClassrooms();
             setIsCreatingClassroom(false);
             setNewClassName("");
-            setNewClassTeacherId("");
+            setNewClassTeacherIds([]);
         } catch (e) {
             handleFirestoreError(e, 'create', 'classrooms', user);
         }
@@ -142,7 +142,7 @@ export function AdminDashboard() {
 
                 <TabsContent value="classrooms" className="outline-none">
                     <div className="flex justify-end mb-4">
-                        <Button onClick={() => { setNewClassName(""); setNewClassTeacherId(""); setIsCreatingClassroom(true); }}>Create Classroom</Button>
+                        <Button onClick={() => { setNewClassName(""); setNewClassTeacherIds([]); setIsCreatingClassroom(true); }}>Create Classroom</Button>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {classrooms.map(c => (
@@ -151,13 +151,15 @@ export function AdminDashboard() {
                                     <div className="flex justify-between items-start">
                                         <CardTitle>{c.name}</CardTitle>
                                         <div className="flex space-x-2">
-                                            <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); setEditingClassroom(c); setNewClassName(c.name); setNewClassTeacherId(c.teacherId); }}>Edit</Button>
+                                            <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); setEditingClassroom(c); setNewClassName(c.name); setNewClassTeacherIds(c.teacherIds || (c.teacherId ? [c.teacherId] : [])); }}>Edit</Button>
                                             <Button variant="destructive" size="sm" onClick={(e) => { e.stopPropagation(); setDeletingClassroom(c); }}>Delete</Button>
                                         </div>
                                     </div>
                                 </CardHeader>
                                 <CardContent>
-                                    <p className="text-sm text-slate-500">Teacher ID: {c.teacherId}</p>
+                                    <p className="text-sm text-slate-500">
+                                        Teachers: {(c.teacherIds || (c.teacherId ? [c.teacherId] : [])).map((tId: string) => users.find(u => u.id === tId)?.displayName || users.find(u => u.id === tId)?.email || tId).join(', ') || 'None'}
+                                    </p>
                                     <div className="mt-4 pt-4 border-t border-slate-100 flex justify-end">
                                         <Button variant="outline" size="sm">View Resources</Button>
                                     </div>
@@ -239,22 +241,28 @@ export function AdminDashboard() {
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Assign Teacher</label>
-                                <select 
-                                    className="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    value={newClassTeacherId}
-                                    onChange={(e) => setNewClassTeacherId(e.target.value)}
-                                >
-                                    <option value="" disabled>Select a teacher...</option>
+                                <label className="block text-sm font-medium text-slate-700 mb-2">Assign Teachers</label>
+                                <div className="space-y-2 border border-slate-300 rounded px-3 py-2 max-h-40 overflow-y-auto bg-slate-50">
                                     {users.filter(u => u.role === 'teacher' || u.role === 'admin').map(u => (
-                                        <option key={u.id} value={u.id}>{u.displayName || u.email}</option>
+                                        <label key={u.id} className="flex items-center space-x-2">
+                                            <input 
+                                                type="checkbox" 
+                                                checked={newClassTeacherIds.includes(u.id)}
+                                                onChange={(e) => {
+                                                    if (e.target.checked) setNewClassTeacherIds([...newClassTeacherIds, u.id]);
+                                                    else setNewClassTeacherIds(newClassTeacherIds.filter(id => id !== u.id));
+                                                }}
+                                                className="rounded text-blue-600 focus:ring-blue-500"
+                                            />
+                                            <span className="text-sm font-medium text-slate-700">{u.displayName || u.email}</span>
+                                        </label>
                                     ))}
-                                </select>
+                                </div>
                             </div>
                         </div>
                         <div className="flex justify-end space-x-3">
                             <Button variant="outline" onClick={() => setIsCreatingClassroom(false)}>Cancel</Button>
-                            <Button onClick={confirmCreateClassroom} disabled={!newClassName.trim() || !newClassTeacherId}>Create</Button>
+                            <Button onClick={confirmCreateClassroom} disabled={!newClassName.trim() || newClassTeacherIds.length === 0}>Create</Button>
                         </div>
                     </div>
                 </div>
@@ -276,21 +284,28 @@ export function AdminDashboard() {
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Assign Teacher</label>
-                                <select 
-                                    className="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    value={newClassTeacherId}
-                                    onChange={(e) => setNewClassTeacherId(e.target.value)}
-                                >
+                                <label className="block text-sm font-medium text-slate-700 mb-2">Assign Teachers</label>
+                                <div className="space-y-2 border border-slate-300 rounded px-3 py-2 max-h-40 overflow-y-auto bg-slate-50">
                                     {users.filter(u => u.role === 'teacher' || u.role === 'admin').map(u => (
-                                        <option key={u.id} value={u.id}>{u.displayName || u.email}</option>
+                                        <label key={u.id} className="flex items-center space-x-2">
+                                            <input 
+                                                type="checkbox" 
+                                                checked={newClassTeacherIds.includes(u.id)}
+                                                onChange={(e) => {
+                                                    if (e.target.checked) setNewClassTeacherIds([...newClassTeacherIds, u.id]);
+                                                    else setNewClassTeacherIds(newClassTeacherIds.filter(id => id !== u.id));
+                                                }}
+                                                className="rounded text-blue-600 focus:ring-blue-500"
+                                            />
+                                            <span className="text-sm font-medium text-slate-700">{u.displayName || u.email}</span>
+                                        </label>
                                     ))}
-                                </select>
+                                </div>
                             </div>
                         </div>
                         <div className="flex justify-end space-x-3">
                             <Button variant="outline" onClick={() => setEditingClassroom(null)}>Cancel</Button>
-                            <Button onClick={confirmEditClassroom} disabled={!newClassName.trim() || !newClassTeacherId}>Save Changes</Button>
+                            <Button onClick={confirmEditClassroom} disabled={!newClassName.trim() || newClassTeacherIds.length === 0}>Save Changes</Button>
                         </div>
                     </div>
                 </div>

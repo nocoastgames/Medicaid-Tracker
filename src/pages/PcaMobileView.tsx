@@ -208,6 +208,9 @@ export function PcaMobileView() {
     );
     const currentActiveForSelection = activeLogs.filter((l:any) => l.pcaId === selectedPca?.id && l.studentId === selectedStudent?.id);
 
+    const pcaActiveTask = selectedPca ? activeLogs.find((l:any) => l.pcaId === selectedPca.id) : null;
+    const pcaActiveTaskStudent = pcaActiveTask ? students.find((s:any) => s.id === pcaActiveTask.studentId) : null;
+
     return (
         <div className="flex flex-col min-h-screen bg-slate-50">
             <header className="bg-white border-b border-slate-200 p-4 sticky top-0 z-10 flex flex-col items-center relative">
@@ -256,14 +259,31 @@ export function PcaMobileView() {
                             <span className="text-slate-400">/</span>
                             <span className="font-bold text-slate-700">{selectedPca.name}</span>
                         </div>
+                        
                         <h2 className="text-lg font-bold text-slate-700 mb-4">Select Student</h2>
-                        <div className="space-y-2">
+                        <div className="space-y-2 mb-6">
                             {students.map(s => (
                                 <button key={s.id} onClick={() => setSelectedStudent(s)} className="w-full text-left bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:border-blue-400 active:bg-blue-50 transition-colors font-medium text-slate-700">
                                     {s.name}
                                 </button>
                             ))}
                         </div>
+
+                        {pcaActiveTask && (
+                            <div className="mb-6">
+                                <h3 className="text-sm font-bold text-amber-600 uppercase mb-3">Your Current Task</h3>
+                                <Card className="border-amber-200 bg-amber-50 shadow-none border-2 border-dashed">
+                                    <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                        <div>
+                                            <p className="font-bold text-slate-800">{pcaActiveTask.serviceType}</p>
+                                            <p className="text-sm text-slate-800 font-semibold mb-1">with {pcaActiveTaskStudent?.name || "Student"}</p>
+                                            <p className="text-xs text-slate-500">Started at {format(pcaActiveTask.startTime, 'h:mm a')}</p>
+                                        </div>
+                                        <Button onClick={() => stopService(pcaActiveTask.id)} className="bg-red-500 hover:bg-red-600 font-bold">Stop Task</Button>
+                                    </CardContent>
+                                </Card>
+                            </div>
+                        )}
                     </div>
                 )}
 

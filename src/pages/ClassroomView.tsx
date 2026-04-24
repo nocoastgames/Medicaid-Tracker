@@ -761,7 +761,8 @@ function ServiceLogsManager({
   const deleteLog = async (id: string) => {
     try {
       await deleteDoc(doc(db, "serviceLogs", id));
-      fetchLogs();
+      // In a real app we'd trigger a reload of logs, but onSnapshot already does it for us
+      // or we just let onSnapshot handle it if this component isn't using onSnapshot for all logs. Wait, allLogs is managed by onSnapshot in the parent, so it's auto-updating!
     } catch (e) {
       handleFirestoreError(e, "delete", `serviceLogs/${id}`, user);
     }

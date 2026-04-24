@@ -45,8 +45,8 @@ service cloud.firestore {
     }
 
     function isValidClassroom(data) {
-      return data.keys().hasAll(['teacherId', 'name', 'createdAt']) &&
-             data.teacherId is string &&
+      return data.keys().hasAll(['teacherIds', 'name', 'createdAt']) &&
+             data.teacherIds is list &&
              data.name is string && data.name.size() > 0 && data.name.size() <= 200 &&
              data.createdAt is number;
     }
@@ -79,8 +79,11 @@ service cloud.firestore {
 
     // Ownership Helpers
     function ownsClassroom(classroomId) {
-      return exists(/databases/$(database)/documents/classrooms/$(classroomId)) &&
-             get(/databases/$(database)/documents/classrooms/$(classroomId)).data.teacherId == request.auth.uid;
+      let classroom = get(/databases/$(database)/documents/classrooms/$(classroomId));
+      return classroom != null && (
+             request.auth.uid in classroom.data.get('teacherIds', []) || 
+             classroom.data.get('teacherId', '') == request.auth.uid
+      );
     }
 
     function hasActiveSession(classroomId) {
@@ -120,14 +123,15 @@ service cloud.firestore {
     match /classrooms/{classroomId} {
       allow get, list: if isVerifiedEmail();
       
-      allow create: if isVerifiedEmail() && isValidId(classroomId) && isValidClassroom(incoming()) && (incoming().teacherId == request.auth.uid || isAdmin());
+      allow create: if isVerifiedEmail() && isValidId(classroomId) && isValidClassroom(incoming()) && isAdmin();
       
       allow update: if isVerifiedEmail() && isValidId(classroomId) && (
-        (existing().teacherId == request.auth.uid && incoming().teacherId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['name'])) ||
-        (existing().teacherId == request.auth.uid && incoming().teacherId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['activeToken'])) ||
+        ( (request.auth.uid in existing().get('teacherIds', []) || existing().get('teacherId', '') == request.auth.uid) && 
+          (request.auth.uid in incoming().get('teacherIds', []) || incoming().get('teacherId', '') == request.auth.uid) && 
+          incoming().diff(existing()).affectedKeys().hasOnly(['name', 'activeToken']) ) ||
         isAdmin()
       );
-      allow delete: if isVerifiedEmail() && isValidId(classroomId) && (existing().teacherId == request.auth.uid || isAdmin());
+      allow delete: if isVerifiedEmail() && isValidId(classroomId) && isAdmin();
     }
 
     match /classrooms/{classroomId}/pcaSessions/{uid} {
