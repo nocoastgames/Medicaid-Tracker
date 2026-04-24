@@ -1,0 +1,6 @@
+{
+  "name": "Medicaid Time Tracker",
+  "description": "App for Personal Care Assistants to track Medicaid services for students in a public school setting.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}

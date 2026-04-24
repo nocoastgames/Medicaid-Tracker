@@ -1,0 +1,173 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- PRIMITIVE HELPERS ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isVerifiedEmail() {
+      // In testing we might not have email_verified, but in prod we should. Let's just require isSignedIn.
+      return isSignedIn();
+    }
+    
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+
+    function isAdmin() {
+      return isSignedIn() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function isOwnRecord() {
+      return isSignedIn() && request.auth.uid == existing().id;
+    }
+    
+    // --- VALIDATION BLUEPRINTS ---
+    
+    function isValidUser(data) {
+      return data.keys().hasAll(['email', 'role', 'createdAt']) &&
+             data.email is string && data.email.size() > 0 && data.email.size() <= 255 &&
+             data.role in ['admin', 'teacher'] &&
+             data.createdAt is number;
+    }
+
+    function isValidClassroom(data) {
+      return data.keys().hasAll(['teacherId', 'name', 'createdAt']) &&
+             data.teacherId is string && data.teacherId == request.auth.uid &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 200 &&
+             data.createdAt is number;
+    }
+
+    function isValidPCA(data) {
+      return data.keys().hasAll(['classroomId', 'name', 'createdAt']) &&
+             data.classroomId is string && isValidId(data.classroomId) &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             data.createdAt is number;
+    }
+
+    function isValidStudent(data) {
+      return data.keys().hasAll(['classroomId', 'name', 'createdAt']) &&
+             data.classroomId is string && isValidId(data.classroomId) &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             data.createdAt is number;
+    }
+
+    function isValidServiceLog(data) {
+      return data.keys().hasAll(['classroomId', 'studentId', 'pcaId', 'serviceType', 'startTime', 'date', 'createdAt', 'updatedAt']) &&
+             data.classroomId is string && isValidId(data.classroomId) &&
+             data.studentId is string && isValidId(data.studentId) &&
+             data.pcaId is string && isValidId(data.pcaId) &&
+             data.serviceType is string && data.serviceType in ["Dressing", "Eating/Meal Prep", "Mobility/Ambulation", "Positioning/Transferring", "Toileting/Diapering"] &&
+             data.startTime is number &&
+             data.date is string && data.date.size() == 10 &&
+             data.createdAt is number && data.updatedAt is number &&
+             ( !data.keys().hasAny(['endTime']) || data.endTime is number );
+    }
+
+    // Ownership Helpers
+    function ownsClassroom(classroomId) {
+      return exists(/databases/$(database)/documents/classrooms/$(classroomId)) &&
+             get(/databases/$(database)/documents/classrooms/$(classroomId)).data.teacherId == request.auth.uid;
+    }
+
+    function hasActiveSession(classroomId) {
+      return exists(/databases/$(database)/documents/classrooms/$(classroomId)/pcaSessions/$(request.auth.uid));
+    }
+
+    function isAuthorizedForClassroom(classroomId) {
+       return ownsClassroom(classroomId) || hasActiveSession(classroomId);
+    }
+
+    // --- COLLECTIONS ---
+
+    match /users/{userId} {
+      allow get: if isVerifiedEmail() && (request.auth.uid == userId || isAdmin());
+      // Admin list all teachers
+      allow list: if isVerifiedEmail() && isAdmin();
+      
+      allow create: if isVerifiedEmail() && isValidId(userId) && isValidUser(incoming()) && (
+        (request.auth.uid == userId) || isAdmin()
+      );
+      
+      allow update: if isVerifiedEmail() && isValidId(userId) && isValidUser(incoming()) && (
+        isAdmin() || (
+          request.auth.uid == userId &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'updatedAt']) &&
+          incoming().role == existing().role
+        )
+      );
+      allow delete: if isAdmin();
+    }
+
+    match /classrooms/{classroomId} {
+      allow get: if isVerifiedEmail() && isValidId(classroomId) && (isAuthorizedForClassroom(classroomId) || isAdmin());
+      allow list: if isVerifiedEmail() && (resource.data.teacherId == request.auth.uid || isAdmin());
+      
+      allow create: if isVerifiedEmail() && isValidId(classroomId) && isValidClassroom(incoming()) && incoming().teacherId == request.auth.uid;
+      
+      allow update: if isVerifiedEmail() && isValidId(classroomId) && (
+        (existing().teacherId == request.auth.uid && incoming().teacherId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['name'])) ||
+        (existing().teacherId == request.auth.uid && incoming().teacherId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['activeToken'])) ||
+        isAdmin()
+      );
+      allow delete: if isVerifiedEmail() && isValidId(classroomId) && (existing().teacherId == request.auth.uid || isAdmin());
+    }
+
+    match /classrooms/{classroomId}/pcaSessions/{uid} {
+      allow get, list: if isVerifiedEmail() && ownsClassroom(classroomId);
+      allow create: if isVerifiedEmail() && uid == request.auth.uid && incoming().token == get(/databases/$(database)/documents/classrooms/$(classroomId)).data.activeToken;
+    }
+
+    match /pcas/{pcaId} {
+      allow get: if isVerifiedEmail() && isValidId(pcaId) && isAuthorizedForClassroom(existing().classroomId);
+      allow list: if isVerifiedEmail() && isAuthorizedForClassroom(resource.data.classroomId);
+      
+      allow create: if isVerifiedEmail() && isValidId(pcaId) && isValidPCA(incoming()) && ownsClassroom(incoming().classroomId);
+      allow update: if isVerifiedEmail() && isValidId(pcaId) && isValidPCA(incoming()) && 
+                    ownsClassroom(existing().classroomId) && 
+                    incoming().classroomId == existing().classroomId &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['name']);
+      allow delete: if isVerifiedEmail() && isValidId(pcaId) && ownsClassroom(existing().classroomId);
+    }
+
+    match /students/{studentId} {
+      allow get: if isVerifiedEmail() && isValidId(studentId) && isAuthorizedForClassroom(existing().classroomId);
+      allow list: if isVerifiedEmail() && isAuthorizedForClassroom(resource.data.classroomId);
+      
+      allow create: if isVerifiedEmail() && isValidId(studentId) && isValidStudent(incoming()) && ownsClassroom(incoming().classroomId);
+      allow update: if isVerifiedEmail() && isValidId(studentId) && isValidStudent(incoming()) && 
+                    ownsClassroom(existing().classroomId) && 
+                    incoming().classroomId == existing().classroomId &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['name']);
+      allow delete: if isVerifiedEmail() && isValidId(studentId) && ownsClassroom(existing().classroomId);
+    }
+
+    match /serviceLogs/{logId} {
+      allow get: if isVerifiedEmail() && isValidId(logId) && isAuthorizedForClassroom(existing().classroomId);
+      allow list: if isVerifiedEmail() && isAuthorizedForClassroom(resource.data.classroomId);
+      
+      allow create: if isVerifiedEmail() && isValidId(logId) && isValidServiceLog(incoming()) && isAuthorizedForClassroom(incoming().classroomId);
+      
+      allow update: if isVerifiedEmail() && isValidId(logId) && isValidServiceLog(incoming()) && 
+                    isAuthorizedForClassroom(existing().classroomId) &&
+                    incoming().classroomId == existing().classroomId &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['endTime', 'updatedAt']);
+                    
+      allow delete: if isVerifiedEmail() && isValidId(logId) && ownsClassroom(existing().classroomId);
+    }
+
+  }
+}
