@@ -17,9 +17,10 @@ const SERVICES = [
 ];
 
 export function PcaMobileView() {
-    const { classroomId, token } = useParams();
+    const { classroomId, token, pcaId } = useParams();
     const [status, setStatus] = useState<'initializing' | 'invalid' | 'ready'>('initializing');
     const [errorMsg, setErrorMsg] = useState('');
+    const [authWaitMsg, setAuthWaitMsg] = useState('');
     
     const [classroomName, setClassroomName] = useState('Loading...');
     const [pcas, setPcas] = useState<any[]>([]);
@@ -56,11 +57,12 @@ export function PcaMobileView() {
         } catch (error: any) {
             console.error('Error setting up PCA session:', error);
             if (error.code === 'auth/operation-not-allowed') {
-                setErrorMsg('Anonymous authentication is not enabled in Firebase project.');
-            } else if (error.code === 'permission-denied') {
-                setErrorMsg('Invalid or expired QR code link.');
+                setErrorMsg('Anonymous authentication is not enabled in this app\'s Firebase project. The developer must go to the Firebase Console -> Authentication -> Sign-in Method -> add Anonymous and enable it.');
+                setAuthWaitMsg('Waiting for developer or teacher to fix...');
+            } else if (error.code === 'permission-denied' || error.message?.includes('permission')) {
+                setErrorMsg('Invalid or expired QR code link ' + error.message);
             } else {
-                setErrorMsg('Failed to connect to the classroom session.');
+                setErrorMsg('Failed to connect to the classroom session. details: ' + (error.message || JSON.stringify(error)));
             }
             setStatus('invalid');
         }
@@ -76,7 +78,12 @@ export function PcaMobileView() {
         if (!classroomId) return;
         const q = query(collection(db, 'pcas'), where('classroomId', '==', classroomId));
         const snap = await getDocs(q);
-        setPcas(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        const pcasList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        setPcas(pcasList);
+        if (pcaId) {
+             const found = pcasList.find(p => p.id === pcaId);
+             if (found) setSelectedPca(found);
+        }
     };
 
     const loadStudents = async () => {
@@ -142,7 +149,8 @@ export function PcaMobileView() {
                     </CardHeader>
                     <CardContent className="pt-6">
                         <p className="text-slate-700">{errorMsg}</p>
-                        <p className="text-sm text-slate-500 mt-4">Please ask the teacher to show you the QR code again.</p>
+                        {authWaitMsg && <p className="text-yellow-600 font-bold mt-4 animate-pulse">{authWaitMsg}</p>}
+                        {!authWaitMsg && <p className="text-sm text-slate-500 mt-4">Please ask the teacher to show you the QR code again.</p>}
                     </CardContent>
                 </Card>
             </div>

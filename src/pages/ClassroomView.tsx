@@ -517,28 +517,14 @@ function TrackerApp({
                 </p>
               </div>
               {activeToken && (
-                <div className="flex flex-col items-center gap-2">
-                  <div className="flex items-center gap-4 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                    <div className="bg-white p-2 rounded-lg border border-slate-200 shadow-sm">
-                      <QRCode
-                        value={`${window.location.origin}${window.location.pathname.endsWith('/') ? window.location.pathname : window.location.pathname + '/'}#/pca/${classroomId}/${activeToken}`}
-                        size={80}
-                      />
-                    </div>
-                    <div className="text-left text-sm max-w-[150px]">
-                      <p className="font-bold text-slate-700">Use Your Phone</p>
-                      <p className="text-slate-500 text-xs">
-                        Scan to log data from your own device.
-                      </p>
-                    </div>
-                  </div>
+                <div className="flex flex-col items-end gap-2">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={resetActiveToken}
                     className="text-xs"
                   >
-                    Reset QR Code
+                    Reset QR Codes
                   </Button>
                 </div>
               )}
@@ -550,8 +536,11 @@ function TrackerApp({
                   onClick={() => setSelectedPca(p)}
                   className="bg-white border-2 border-slate-100 p-6 rounded-2xl shadow-sm hover:border-blue-400 cursor-pointer group flex flex-col items-center justify-center min-h-[160px] transition-all"
                 >
-                  <div className="w-16 h-16 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-2xl mb-4 group-hover:scale-110 transition-transform">
-                    {p.name.substring(0, 2).toUpperCase()}
+                  <div className="bg-white p-2 mb-4 rounded-lg border border-slate-200 shadow-sm transition-transform group-hover:scale-105 pointer-events-none">
+                    <QRCode
+                       value={`${window.location.origin}${window.location.pathname.endsWith('/') ? window.location.pathname : window.location.pathname + '/'}#/pca/${classroomId}/${activeToken}/${p.id}`}
+                       size={80}
+                     />
                   </div>
                   <h3 className="text-lg font-bold text-slate-800 text-center">
                     {p.name}

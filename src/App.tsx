@@ -46,6 +46,7 @@ export default function App() {
                     <Route path="/teacher/*" element={<ProtectedRoute requiredRole="teacher"><TeacherDashboard /></ProtectedRoute>} />
                     <Route path="/classroom/:classroomId" element={<ProtectedRoute requiredRole="teacher"><ClassroomView /></ProtectedRoute>} />
                     <Route path="/pca/:classroomId/:token" element={<PcaMobileView />} />
+                    <Route path="/pca/:classroomId/:token/:pcaId" element={<PcaMobileView />} />
                     <Route path="/" element={<DefaultHome />} />
                 </Routes>
             </div>
