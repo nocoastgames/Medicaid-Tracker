@@ -33,7 +33,7 @@ export function Login() {
             } else if (e.code === 'auth/cancelled-popup-request' || e.code === 'auth/popup-closed-by-user') {
                 setErrorMsg("Login popup was closed before finishing.");
             } else {
-                setErrorMsg("An error occurred during login. Please try again.");
+                setErrorMsg("An error occurred during login. Please try again. " + (e.message || ""));
             }
             setIsLoggingIn(false);
         }
