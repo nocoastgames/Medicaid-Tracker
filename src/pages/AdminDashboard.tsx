@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { collection, query, getDocs, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db, logout } from '../services/firebase';
-import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
-import { Button } from '../components/ui/Button';
+import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card';
+import { Button } from '../components/ui/button';
 import { handleFirestoreError } from '../lib/firestore-errors';
 import { useAuth } from '../contexts/AuthContext';
-import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '../components/ui/Table';
+import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '../components/ui/table';
 
 export function AdminDashboard() {
     const [users, setUsers] = useState<any[]>([]);

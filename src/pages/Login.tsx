@@ -1,6 +1,6 @@
 import { loginWithGoogle } from '../services/firebase';
-import { Button } from '../components/ui/Button';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../components/ui/Card';
+import { Button } from '../components/ui/button';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../components/ui/card';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useEffect, useState } from 'react';
