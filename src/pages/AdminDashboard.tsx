@@ -25,11 +25,9 @@ export function AdminDashboard() {
         }
     };
 
-    const toggleRole = async (targetUser: any) => {
+    const updateRole = async (targetUser: any, newRole: string) => {
         if (!user) return;
         try {
-            const newRole = targetUser.role === 'admin' ? 'teacher' : 'admin';
-            // We need custom role update? Wait, Admin can update everything.
             await updateDoc(doc(db, 'users', targetUser.id), {
                 role: newRole,
                 updatedAt: Date.now()
@@ -90,12 +88,18 @@ export function AdminDashboard() {
                                     <TableCell>{u.email}</TableCell>
                                     <TableCell>{u.displayName}</TableCell>
                                     <TableCell>
-                                        <span className={`px-2 py-1 rounded text-xs font-medium ${u.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'}`}>
-                                            {u.role?.toUpperCase()}
-                                        </span>
+                                        <select 
+                                            value={u.role || 'pending'} 
+                                            onChange={(e) => updateRole(u, e.target.value)}
+                                            className="px-2 py-1 rounded text-xs font-medium border border-slate-200 bg-slate-50"
+                                        >
+                                            <option value="pending">Pending</option>
+                                            <option value="pca">PCA</option>
+                                            <option value="teacher">Teacher</option>
+                                            <option value="admin">Admin</option>
+                                        </select>
                                     </TableCell>
                                     <TableCell className="space-x-2">
-                                        <Button variant="outline" size="sm" onClick={() => toggleRole(u)}>Toggle Role</Button>
                                         <Button variant="destructive" size="sm" onClick={() => deleteUser(u.id)}>Delete</Button>
                                     </TableCell>
                                 </TableRow>

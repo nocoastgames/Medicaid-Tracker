@@ -17,6 +17,7 @@ import {
   deleteDoc,
   updateDoc,
   getDoc,
+  onSnapshot
 } from "firebase/firestore";
 import { useAuth } from "../contexts/AuthContext";
 import { handleFirestoreError } from "../lib/firestore-errors";
@@ -67,7 +68,24 @@ export function ClassroomView() {
     loadClassroom();
     loadPcas();
     loadStudents();
-    loadAllLogs();
+    
+    // Instead of simple getDocs, let's use onSnapshot for strictly real-time service logs
+    const q = query(
+      collection(db, "serviceLogs"),
+      where("classroomId", "==", classroomId)
+    );
+    
+    const unsubscribe = onSnapshot(q, (snap) => {
+      setAllLogs(
+        snap.docs
+          .map((d) => ({ id: d.id, ...d.data() }) as any)
+          .sort((a: any, b: any) => b.startTime - a.startTime)
+      );
+    }, (e) => {
+      console.error("Error heavily fetching logs", e);
+    });
+
+    return () => unsubscribe();
   }, [user, classroomId]);
 
   const loadClassroom = async () => {
@@ -365,7 +383,6 @@ export function ClassroomView() {
             <TabsContent value="logs">
               <ServiceLogsManager
                 logs={allLogs}
-                fetchLogs={loadAllLogs}
                 user={user}
                 classroomId={classroomId!}
                 pcas={pcas}
@@ -429,31 +446,26 @@ function TrackerApp({
   const [activeLogs, setActiveLogs] = useState<any[]>([]);
 
   useEffect(() => {
-    if (classroomId) loadActiveLogs();
-    // A real app would use onSnapshot for realtime updates, but for now we poll or reload.
-    // We can just rely on state changes reloading if it's identical device.
-    const interval = setInterval(loadActiveLogs, 10000);
-    return () => clearInterval(interval);
-  }, [classroomId]);
+    if (!classroomId) return;
+    
+    const today = format(new Date(), "yyyy-MM-dd");
+    const q = query(
+      collection(db, "serviceLogs"),
+      where("classroomId", "==", classroomId),
+      where("date", "==", today)
+    );
 
-  const loadActiveLogs = async () => {
-    try {
-      const today = format(new Date(), "yyyy-MM-dd");
-      const q = query(
-        collection(db, "serviceLogs"),
-        where("classroomId", "==", classroomId),
-        where("date", "==", today),
-      );
-      const snap = await getDocs(q);
-      // filter dynamically for those without endTime
+    const unsubscribe = onSnapshot(q, (snap) => {
       const logs = snap.docs
         .map((d) => ({ id: d.id, ...d.data() }) as any)
         .filter((l: any) => !l.endTime);
       setActiveLogs(logs);
-    } catch (e) {
-      handleFirestoreError(e, "list", "serviceLogs", user);
-    }
-  };
+    }, (e) => {
+      console.error("Error heavily fetching active logs", e);
+    });
+
+    return () => unsubscribe();
+  }, [classroomId]);
 
   const startService = async (serviceType: string) => {
     if (!selectedPca || !selectedStudent || !classroomId || !user) return;
@@ -475,7 +487,6 @@ function TrackerApp({
       // reset selection
       setSelectedPca(null);
       setSelectedStudent(null);
-      loadActiveLogs();
     } catch (e) {
       handleFirestoreError(e, "create", "serviceLogs", user);
     }
@@ -488,7 +499,6 @@ function TrackerApp({
         endTime: Date.now(),
         updatedAt: Date.now(),
       });
-      loadActiveLogs();
     } catch (e) {
       handleFirestoreError(e, "update", `serviceLogs/${logId}`, user);
     }
@@ -708,7 +718,6 @@ function TrackerApp({
 
 function ServiceLogsManager({
   logs,
-  fetchLogs,
   user,
   classroomId,
   pcas,
@@ -744,7 +753,6 @@ function ServiceLogsManager({
       };
 
       await setDoc(doc(db, "serviceLogs", id), docData);
-      fetchLogs();
     } catch (e) {
       handleFirestoreError(e, "create", "serviceLogs", user);
     }

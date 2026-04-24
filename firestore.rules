@@ -40,7 +40,7 @@ service cloud.firestore {
     function isValidUser(data) {
       return data.keys().hasAll(['email', 'role', 'createdAt']) &&
              data.email is string && data.email.size() > 0 && data.email.size() <= 255 &&
-             data.role in ['admin', 'teacher'] &&
+             data.role in ['admin', 'teacher', 'pca', 'pending'] &&
              data.createdAt is number;
     }
 
@@ -99,7 +99,11 @@ service cloud.firestore {
       allow list: if isVerifiedEmail() && isAdmin();
       
       allow create: if isVerifiedEmail() && isValidId(userId) && isValidUser(incoming()) && (
-        (request.auth.uid == userId) || isAdmin()
+        isAdmin() || 
+        (request.auth.uid == userId && (
+          incoming().role == 'pending' || 
+          (incoming().role == 'admin' && (request.auth.token.email == 'renegml@nv.ccsd.net' || request.auth.token.email == 'mrenegar@gmail.com'))
+        ))
       );
       
       allow update: if isVerifiedEmail() && isValidId(userId) && isValidUser(incoming()) && (
