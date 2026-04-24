@@ -6,11 +6,11 @@ import { useAuth } from '../contexts/AuthContext';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Label } from '../components/ui/label';
 
 export function TeacherDashboard() {
-    const { user } = useAuth();
+    const { user, role } = useAuth();
     const [classrooms, setClassrooms] = useState<any[]>([]);
     const [newClassName, setNewClassName] = useState('');
     const navigate = useNavigate();
@@ -71,6 +71,11 @@ export function TeacherDashboard() {
                     </div>
                 </div>
                 <div className="flex items-center space-x-6">
+                    {role === 'admin' && (
+                        <Link to="/admin" className="flex items-center space-x-2 bg-purple-50 px-4 py-2 rounded-full border border-purple-200 hover:bg-purple-100 transition-colors">
+                            <span className="text-sm font-bold text-purple-700">Admin View</span>
+                        </Link>
+                    )}
                     <button onClick={logout} className="flex items-center space-x-2 bg-slate-100 px-4 py-2 rounded-full border border-slate-200 hover:bg-white transition-colors">
                         <span className="text-sm font-medium text-slate-700">Sign Out</span>
                     </button>

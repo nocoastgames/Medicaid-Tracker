@@ -33,8 +33,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (userDoc.exists()) {
                 const data = userDoc.data();
                 if (isAdminEmail && data.role !== 'admin') {
-                    await updateDoc(doc(db, 'users', currentUser.uid), { role: 'admin' });
-                    setRole('admin');
+                    try {
+                        await updateDoc(doc(db, 'users', currentUser.uid), { role: 'admin' });
+                        setRole('admin');
+                    } catch (updateErr) {
+                        console.error("Error setting admin role initially", updateErr);
+                        setRole('pending'); // fallback so they don't get stuck
+                    }
                 } else {
                     setRole(data.role);
                 }
@@ -48,11 +53,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     role: initialRole,
                     createdAt: Date.now()
                 };
-                await setDoc(doc(db, 'users', currentUser.uid), newUser);
-                setRole(initialRole);
+                try {
+                    await setDoc(doc(db, 'users', currentUser.uid), newUser);
+                    setRole(initialRole);
+                } catch (setErr) {
+                    console.error("Error creating new user doc", setErr);
+                    setRole('pending'); // fallback
+                }
             }
         } catch (e) {
             console.error("Error fetching user role", e);
+            setRole('pending');
         }
       } else {
         setRole(null);

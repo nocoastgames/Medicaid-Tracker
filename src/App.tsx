@@ -22,9 +22,12 @@ function ProtectedRoute({ children, requiredRole }: { children: React.ReactNode,
     if (role === 'pending') return <Navigate to="/pending" />;
     
     if (requiredRole && role !== requiredRole) {
-         if (role === 'admin') return <Navigate to="/admin" />;
-         if (role === 'teacher') return <Navigate to="/teacher" />;
-         return <Navigate to="/login" />;
+         if (requiredRole === 'teacher' && role === 'admin') {
+             // Let admins access teacher routes
+         } else {
+             if (role === 'admin' || role === 'teacher') return <Navigate to="/teacher" />;
+             return <Navigate to="/login" />;
+         }
     }
     
     return children;
@@ -34,8 +37,7 @@ function DefaultHome() {
     const { user, role, loading } = useAuth();
     if (loading) return <Loading />;
     if (!user) return <Navigate to="/login" />;
-    if (role === 'admin') return <Navigate to="/admin" />;
-    if (role === 'teacher') return <Navigate to="/teacher" />;
+    if (role === 'admin' || role === 'teacher') return <Navigate to="/teacher" />;
     if (role === 'pending') return <Navigate to="/pending" />;
     return <Navigate to="/login" />;
 }

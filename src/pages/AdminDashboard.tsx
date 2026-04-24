@@ -6,6 +6,7 @@ import { Button } from '../components/ui/button';
 import { handleFirestoreError } from '../lib/firestore-errors';
 import { useAuth } from '../contexts/AuthContext';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '../components/ui/table';
+import { Link } from 'react-router-dom';
 
 export function AdminDashboard() {
     const [users, setUsers] = useState<any[]>([]);
@@ -61,6 +62,9 @@ export function AdminDashboard() {
                     </div>
                 </div>
                 <div className="flex items-center space-x-6">
+                    <Link to="/teacher" className="flex items-center space-x-2 bg-blue-50 px-4 py-2 rounded-full border border-blue-200 hover:bg-blue-100 transition-colors">
+                        <span className="text-sm font-bold text-blue-700">Teacher View</span>
+                    </Link>
                     <button onClick={logout} className="flex items-center space-x-2 bg-slate-100 px-4 py-2 rounded-full border border-slate-200 hover:bg-white transition-colors">
                         <span className="text-sm font-medium text-slate-700">Sign Out</span>
                     </button>
