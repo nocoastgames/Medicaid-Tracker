@@ -521,7 +521,7 @@ function TrackerApp({
                   <div className="flex items-center gap-4 bg-slate-50 p-3 rounded-xl border border-slate-100">
                     <div className="bg-white p-2 rounded-lg border border-slate-200 shadow-sm">
                       <QRCode
-                        value={`${window.location.origin}/pca/${classroomId}/${activeToken}`}
+                        value={`${window.location.origin}${window.location.pathname.endsWith('/') ? window.location.pathname : window.location.pathname + '/'}#/pca/${classroomId}/${activeToken}`}
                         size={80}
                       />
                     </div>
