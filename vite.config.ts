@@ -6,8 +6,8 @@ import {defineConfig, loadEnv} from 'vite';
 export default defineConfig(({mode}) => {
   const env = loadEnv(mode, '.', '');
   
-  // Dynamically set base path for GitHub Pages based on the repository name
-  const basePath = process.env.GITHUB_REPOSITORY ? `/${process.env.GITHUB_REPOSITORY.split('/')[1]}/` : '/';
+  // Hardcoded base path for GitHub Pages based on repository name
+  const basePath = '/Medicaid-Tracker/';
 
   return {
     base: basePath,
