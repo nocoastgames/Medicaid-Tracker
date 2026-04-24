@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { db, auth } from '../services/firebase';
 import { signInAnonymously } from 'firebase/auth';
 import { collection, query, where, getDocs, getDoc, doc, setDoc, updateDoc } from 'firebase/firestore';
@@ -18,6 +18,7 @@ const SERVICES = [
 
 export function PcaMobileView() {
     const { classroomId, token, pcaId } = useParams();
+    const navigate = useNavigate();
     const [status, setStatus] = useState<'initializing' | 'invalid' | 'ready'>('initializing');
     const [errorMsg, setErrorMsg] = useState('');
     const [authWaitMsg, setAuthWaitMsg] = useState('');
@@ -40,17 +41,33 @@ export function PcaMobileView() {
     const setupSession = async () => {
         if (!classroomId || !token) return;
         try {
-            // Sign in anonymously
-            const userCred = await signInAnonymously(auth);
-            const uid = userCred.user.uid;
+            if (token === 'login-bypass') {
+                // Already authenticated via Google (PCA Dashboard)
+                if (!auth.currentUser) {
+                    navigate('/login');
+                    return; 
+                }
+            } else {
+                // Anonymous sign in flow (QR Code)
+                let uid = auth.currentUser?.uid;
+                if (!uid) {
+                    const cred = await signInAnonymously(auth);
+                    uid = cred.user.uid;
+                }
+                
+                if (uid) {
+                    try {
+                        await setDoc(doc(db, 'classrooms', classroomId, 'pcaSessions', uid), {
+                            token: token,
+                            createdAt: Date.now()
+                        });
+                    } catch(e) {
+                       // Allowed to fail if we already have it or if permissions are broader now
+                    }
+                }
+            }
 
-            // Register session token to get access to classroom data based on rules
-            await setDoc(doc(db, 'classrooms', classroomId, 'pcaSessions', uid), {
-                token: token,
-                createdAt: Date.now()
-            });
-
-            // If we succeed writing session, token must be valid (per rules). We can now read data.
+            // If we succeed writing session or bypassed, we can now read data.
             await loadClassroom();
             await loadPcas();
             await loadStudents();
@@ -126,6 +143,13 @@ export function PcaMobileView() {
 
     const startService = async (service: string) => {
         if (!selectedPca || !selectedStudent || !classroomId) return;
+        
+        // Ensure PCA only does one task at once across all students
+        if (activeLogs.some((l:any) => l.pcaId === selectedPca.id)) {
+            alert("Warning: You are already performing an active task for a student. Please stop your current task before starting a new one.");
+            return;
+        }
+
         try {
             const today = format(new Date(), 'yyyy-MM-dd');
             const newRef = doc(collection(db, 'serviceLogs'));
@@ -186,9 +210,28 @@ export function PcaMobileView() {
 
     return (
         <div className="flex flex-col min-h-screen bg-slate-50">
-            <header className="bg-white border-b border-slate-200 p-4 sticky top-0 z-10 flex flex-col items-center">
+            <header className="bg-white border-b border-slate-200 p-4 sticky top-0 z-10 flex flex-col items-center relative">
+                {token === 'login-bypass' && (
+                    <button 
+                        onClick={() => navigate('/pca-dashboard', { state: { explicit: true } })}
+                        className="absolute left-4 top-4 text-sm font-semibold text-blue-600 bg-blue-50 px-3 py-1 rounded-full"
+                    >
+                        Change Room
+                    </button>
+                )}
                 <h1 className="text-xl font-bold text-slate-800">{classroomName}</h1>
                 <p className="text-xs font-bold text-slate-400 tracking-wider">PCA LOGGING VIEW</p>
+                <div className="absolute right-4 top-4">
+                    <button 
+                        onClick={async () => {
+                            await auth.signOut();
+                            window.location.reload();
+                        }}
+                        className="text-sm font-semibold text-slate-500 hover:text-slate-800"
+                    >
+                        Sign Out
+                    </button>
+                </div>
             </header>
 
             <main className="flex-grow p-4 max-w-lg mx-auto w-full">
@@ -276,18 +319,26 @@ export function PcaMobileView() {
                                 <div>
                                     <h3 className="text-sm font-bold text-slate-500 uppercase mb-3 mt-6">Start New Service</h3>
                                     <div className="space-y-2">
-                                        {uncompletedServices.map(service => (
-                                            <button 
-                                                key={service} 
-                                                onClick={() => startService(service)}
-                                                className="w-full text-left bg-white p-4 rounded-xl border border-slate-200 shadow-sm active:bg-blue-50 hover:border-blue-400 transition-colors font-bold text-slate-700 flex justify-between items-center"
-                                            >
-                                                {service}
-                                                <span className="text-blue-500">→</span>
-                                            </button>
-                                        ))}
-                                        {uncompletedServices.length === 0 && (
-                                            <p className="text-slate-500 italic text-sm">All services are currently active for this student.</p>
+                                        {activeLogs.some((l:any) => l.pcaId === selectedPca.id) ? (
+                                            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
+                                                <p className="text-yellow-800 text-sm font-semibold">You already have an active task running. Please stop it first.</p>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                {uncompletedServices.map(service => (
+                                                    <button 
+                                                        key={service} 
+                                                        onClick={() => startService(service)}
+                                                        className="w-full text-left bg-white p-4 rounded-xl border border-slate-200 shadow-sm active:bg-blue-50 hover:border-blue-400 transition-colors font-bold text-slate-700 flex justify-between items-center"
+                                                    >
+                                                        {service}
+                                                        <span className="text-blue-500">→</span>
+                                                    </button>
+                                                ))}
+                                                {uncompletedServices.length === 0 && (
+                                                    <p className="text-slate-500 italic text-sm">All services are currently active for this student.</p>
+                                                )}
+                                            </>
                                         )}
                                     </div>
                                 </div>

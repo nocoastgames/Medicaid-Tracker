@@ -46,7 +46,7 @@ service cloud.firestore {
 
     function isValidClassroom(data) {
       return data.keys().hasAll(['teacherId', 'name', 'createdAt']) &&
-             data.teacherId is string && data.teacherId == request.auth.uid &&
+             data.teacherId is string &&
              data.name is string && data.name.size() > 0 && data.name.size() <= 200 &&
              data.createdAt is number;
     }
@@ -118,10 +118,9 @@ service cloud.firestore {
     }
 
     match /classrooms/{classroomId} {
-      allow get: if isVerifiedEmail() && isValidId(classroomId) && (isAuthorizedForClassroom(classroomId) || isAdmin());
-      allow list: if isVerifiedEmail() && (resource.data.teacherId == request.auth.uid || isAdmin());
+      allow get, list: if isVerifiedEmail();
       
-      allow create: if isVerifiedEmail() && isValidId(classroomId) && isValidClassroom(incoming()) && incoming().teacherId == request.auth.uid;
+      allow create: if isVerifiedEmail() && isValidId(classroomId) && isValidClassroom(incoming()) && (incoming().teacherId == request.auth.uid || isAdmin());
       
       allow update: if isVerifiedEmail() && isValidId(classroomId) && (
         (existing().teacherId == request.auth.uid && incoming().teacherId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['name'])) ||
@@ -132,46 +131,40 @@ service cloud.firestore {
     }
 
     match /classrooms/{classroomId}/pcaSessions/{uid} {
-      allow get, list: if isVerifiedEmail() && ownsClassroom(classroomId);
+      allow get, list: if isVerifiedEmail();
       allow create: if isVerifiedEmail() && uid == request.auth.uid && incoming().token == get(/databases/$(database)/documents/classrooms/$(classroomId)).data.activeToken;
     }
 
     match /pcas/{pcaId} {
-      allow get: if isVerifiedEmail() && isValidId(pcaId) && isAuthorizedForClassroom(existing().classroomId);
-      allow list: if isVerifiedEmail() && isAuthorizedForClassroom(resource.data.classroomId);
-      
-      allow create: if isVerifiedEmail() && isValidId(pcaId) && isValidPCA(incoming()) && ownsClassroom(incoming().classroomId);
+      allow get, list: if isVerifiedEmail();
+      allow create: if isVerifiedEmail() && isValidId(pcaId) && isValidPCA(incoming()) && (ownsClassroom(incoming().classroomId) || isAdmin());
       allow update: if isVerifiedEmail() && isValidId(pcaId) && isValidPCA(incoming()) && 
-                    ownsClassroom(existing().classroomId) && 
+                    (ownsClassroom(existing().classroomId) || isAdmin()) && 
                     incoming().classroomId == existing().classroomId &&
                     incoming().diff(existing()).affectedKeys().hasOnly(['name']);
-      allow delete: if isVerifiedEmail() && isValidId(pcaId) && ownsClassroom(existing().classroomId);
+      allow delete: if isVerifiedEmail() && isValidId(pcaId) && (ownsClassroom(existing().classroomId) || isAdmin());
     }
 
     match /students/{studentId} {
-      allow get: if isVerifiedEmail() && isValidId(studentId) && isAuthorizedForClassroom(existing().classroomId);
-      allow list: if isVerifiedEmail() && isAuthorizedForClassroom(resource.data.classroomId);
-      
-      allow create: if isVerifiedEmail() && isValidId(studentId) && isValidStudent(incoming()) && ownsClassroom(incoming().classroomId);
+      allow get, list: if isVerifiedEmail();
+      allow create: if isVerifiedEmail() && isValidId(studentId) && isValidStudent(incoming()) && (ownsClassroom(incoming().classroomId) || isAdmin());
       allow update: if isVerifiedEmail() && isValidId(studentId) && isValidStudent(incoming()) && 
-                    ownsClassroom(existing().classroomId) && 
+                    (ownsClassroom(existing().classroomId) || isAdmin()) && 
                     incoming().classroomId == existing().classroomId &&
                     incoming().diff(existing()).affectedKeys().hasOnly(['name']);
-      allow delete: if isVerifiedEmail() && isValidId(studentId) && ownsClassroom(existing().classroomId);
+      allow delete: if isVerifiedEmail() && isValidId(studentId) && (ownsClassroom(existing().classroomId) || isAdmin());
     }
 
     match /serviceLogs/{logId} {
-      allow get: if isVerifiedEmail() && isValidId(logId) && isAuthorizedForClassroom(existing().classroomId);
-      allow list: if isVerifiedEmail() && isAuthorizedForClassroom(resource.data.classroomId);
+      allow get, list: if isVerifiedEmail();
       
-      allow create: if isVerifiedEmail() && isValidId(logId) && isValidServiceLog(incoming()) && isAuthorizedForClassroom(incoming().classroomId);
+      allow create: if isVerifiedEmail() && isValidId(logId) && isValidServiceLog(incoming());
       
       allow update: if isVerifiedEmail() && isValidId(logId) && isValidServiceLog(incoming()) && 
-                    isAuthorizedForClassroom(existing().classroomId) &&
                     incoming().classroomId == existing().classroomId &&
                     incoming().diff(existing()).affectedKeys().hasOnly(['endTime', 'updatedAt']);
                     
-      allow delete: if isVerifiedEmail() && isValidId(logId) && ownsClassroom(existing().classroomId);
+      allow delete: if isVerifiedEmail() && isValidId(logId) && (ownsClassroom(existing().classroomId) || isAdmin());
     }
 
   }

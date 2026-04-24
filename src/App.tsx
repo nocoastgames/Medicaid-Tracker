@@ -11,10 +11,11 @@ import { AdminDashboard } from './pages/AdminDashboard';
 import { TeacherDashboard } from './pages/TeacherDashboard';
 import { ClassroomView } from './pages/ClassroomView';
 import { PcaMobileView } from './pages/PcaMobileView';
+import { PcaDashboard } from './pages/PcaDashboard';
 import { PendingApproval } from './pages/PendingApproval';
 import { Loading } from './components/Loading';
 
-function ProtectedRoute({ children, requiredRole }: { children: React.ReactNode, requiredRole?: 'admin' | 'teacher' }) {
+function ProtectedRoute({ children, requiredRole }: { children: React.ReactNode, requiredRole?: 'admin' | 'teacher' | 'pca' }) {
     const { user, role, loading } = useAuth();
     
     if (loading) return <Loading />;
@@ -25,7 +26,9 @@ function ProtectedRoute({ children, requiredRole }: { children: React.ReactNode,
          if (requiredRole === 'teacher' && role === 'admin') {
              // Let admins access teacher routes
          } else {
-             if (role === 'admin' || role === 'teacher') return <Navigate to="/teacher" />;
+             if (role === 'admin') return <Navigate to="/admin" />;
+             if (role === 'teacher') return <Navigate to="/teacher" />;
+             if (role === 'pca') return <Navigate to="/pca-dashboard" />;
              return <Navigate to="/login" />;
          }
     }
@@ -37,7 +40,9 @@ function DefaultHome() {
     const { user, role, loading } = useAuth();
     if (loading) return <Loading />;
     if (!user) return <Navigate to="/login" />;
-    if (role === 'admin' || role === 'teacher') return <Navigate to="/teacher" />;
+    if (role === 'admin') return <Navigate to="/admin" />;
+    if (role === 'teacher') return <Navigate to="/teacher" />;
+    if (role === 'pca') return <Navigate to="/pca-dashboard" />;
     if (role === 'pending') return <Navigate to="/pending" />;
     return <Navigate to="/login" />;
 }
@@ -53,6 +58,7 @@ export default function App() {
                     <Route path="/admin" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />
                     <Route path="/teacher/*" element={<ProtectedRoute requiredRole="teacher"><TeacherDashboard /></ProtectedRoute>} />
                     <Route path="/classroom/:classroomId" element={<ProtectedRoute requiredRole="teacher"><ClassroomView /></ProtectedRoute>} />
+                    <Route path="/pca-dashboard" element={<ProtectedRoute requiredRole="pca"><PcaDashboard /></ProtectedRoute>} />
                     <Route path="/pca/:classroomId/:token" element={<PcaMobileView />} />
                     <Route path="/pca/:classroomId/:token/:pcaId" element={<PcaMobileView />} />
                     <Route path="/" element={<DefaultHome />} />

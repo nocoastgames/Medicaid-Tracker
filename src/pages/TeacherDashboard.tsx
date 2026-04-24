@@ -6,7 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { Label } from '../components/ui/label';
 
 export function TeacherDashboard() {
@@ -14,17 +14,24 @@ export function TeacherDashboard() {
     const [classrooms, setClassrooms] = useState<any[]>([]);
     const [newClassName, setNewClassName] = useState('');
     const navigate = useNavigate();
+    const location = useLocation();
 
     useEffect(() => {
         if (user) loadClassrooms();
-    }, [user]);
+    }, [user, location.state]);
 
     const loadClassrooms = async () => {
         if (!user) return;
         try {
             const q = query(collection(db, 'classrooms'), where('teacherId', '==', user.uid));
             const snap = await getDocs(q);
-            setClassrooms(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+            const rooms = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            setClassrooms(rooms);
+            
+            // Auto-navigate if not explicitly coming to change room
+            if (rooms.length > 0 && !(location.state as any)?.explicit) {
+                navigate(`/classroom/${rooms[0].id}`, { replace: true });
+            }
         } catch (e) {
             handleFirestoreError(e, 'list', 'classrooms', user);
         }

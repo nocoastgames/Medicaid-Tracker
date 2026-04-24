@@ -14,9 +14,10 @@ export function Login() {
 
     useEffect(() => {
         if (!loading && user) {
-             if (role === 'admin' || role === 'teacher') navigate('/teacher');
+             if (role === 'admin') navigate('/admin');
+             else if (role === 'teacher') navigate('/teacher');
              else if (role === 'pending') navigate('/pending');
-             else if (role === 'pca') navigate('/');
+             else if (role === 'pca') navigate('/pca-dashboard');
              else if (role === null) {
                  // Do not navigate, stay on login page if role is null (e.g. error fetching role)
                  // You might want to show the error state in the UI.

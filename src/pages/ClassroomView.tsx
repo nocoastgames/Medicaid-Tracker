@@ -227,7 +227,7 @@ export function ClassroomView() {
             </div>
             <div className="h-10 w-px bg-slate-200 hidden sm:block"></div>
             <button
-              onClick={() => navigate("/teacher")}
+              onClick={() => navigate("/teacher", { state: { explicit: true } })}
               className="flex items-center space-x-2 bg-slate-100 px-4 py-2 rounded-full border border-slate-200 hover:bg-white transition-colors"
             >
               <span className="text-sm font-medium text-slate-700">
