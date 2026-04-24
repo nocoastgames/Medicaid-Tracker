@@ -3,11 +3,11 @@ import { collection, query, where, getDocs, setDoc, doc, deleteDoc } from 'fireb
 import { db, logout } from '../services/firebase';
 import { handleFirestoreError } from '../lib/firestore-errors';
 import { useAuth } from '../contexts/AuthContext';
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '../components/ui/card';
-import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
 import { useNavigate } from 'react-router-dom';
-import { Label } from '../components/ui/label';
+import { Label } from '../components/ui/Label';
 
 export function TeacherDashboard() {
     const { user } = useAuth();

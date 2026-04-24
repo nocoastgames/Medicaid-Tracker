@@ -5,7 +5,7 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
-} from "../components/ui/tabs";
+} from "../components/ui/Tabs";
 import { db } from "../services/firebase";
 import {
   collection,
@@ -25,9 +25,9 @@ import {
   CardHeader,
   CardTitle,
   CardContent,
-} from "../components/ui/card";
-import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
+} from "../components/ui/Card";
+import { Button } from "../components/ui/Button";
+import { Input } from "../components/ui/Input";
 import { format } from "date-fns";
 import {
   Table,
@@ -36,7 +36,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "../components/ui/table";
+} from "../components/ui/Table";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import QRCode from "react-qr-code";

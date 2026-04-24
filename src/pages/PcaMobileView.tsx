@@ -3,8 +3,8 @@ import { useParams } from 'react-router-dom';
 import { db, auth } from '../services/firebase';
 import { signInAnonymously } from 'firebase/auth';
 import { collection, query, where, getDocs, getDoc, doc, setDoc, updateDoc } from 'firebase/firestore';
-import { Button } from '../components/ui/button';
-import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card';
+import { Button } from '../components/ui/Button';
+import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
 
