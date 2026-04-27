@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { db, auth } from '../services/firebase';
 import { signInAnonymously } from 'firebase/auth';
-import { collection, query, where, getDocs, getDoc, doc, setDoc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, getDoc, doc, setDoc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { Button } from '../components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card';
 import { format } from 'date-fns';
@@ -35,10 +35,21 @@ export function PcaMobileView() {
     const [reportLogs, setReportLogs] = useState<any[]>([]);
 
     const [now, setNow] = useState(Date.now());
+    const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
     useEffect(() => {
         const interval = setInterval(() => setNow(Date.now()), 60000);
-        return () => clearInterval(interval);
+        
+        const handleOnline = () => setIsOffline(false);
+        const handleOffline = () => setIsOffline(true);
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+        
+        return () => {
+            clearInterval(interval);
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
+        };
     }, []);
 
     useEffect(() => {
@@ -113,7 +124,6 @@ export function PcaMobileView() {
             await loadClassroom();
             await loadPcas();
             await loadStudents();
-            await loadActiveLogs();
             setStatus('ready');
 
         } catch (error: any) {
@@ -155,14 +165,16 @@ export function PcaMobileView() {
         setStudents(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     };
 
-    const loadActiveLogs = async () => {
-        if (!classroomId) return;
+    useEffect(() => {
+        if (status !== 'ready' || !classroomId) return;
         const today = format(new Date(), 'yyyy-MM-dd');
         const q = query(collection(db, 'serviceLogs'), where('classroomId', '==', classroomId), where('date', '==', today));
-        const snap = await getDocs(q);
-        const logs = snap.docs.map(d => ({ id: d.id, ...d.data() } as any)).filter((l:any) => !l.endTime);
-        setActiveLogs(logs);
-    };
+        const unsubscribe = onSnapshot(q, (snap) => {
+            const logs = snap.docs.map(d => ({ id: d.id, ...d.data() } as any)).filter((l:any) => !l.endTime);
+            setActiveLogs(logs);
+        });
+        return () => unsubscribe();
+    }, [status, classroomId]);
 
     const loadReportLogs = async (date: string) => {
         if (!classroomId || !selectedStudent || !selectedPca) return;
@@ -206,7 +218,6 @@ export function PcaMobileView() {
                 updatedAt: Date.now()
             };
             await setDoc(newRef, payload);
-            await loadActiveLogs();
         } catch (e: any) {
             console.error('Failed to start service: ', e);
         }
@@ -218,7 +229,6 @@ export function PcaMobileView() {
                 endTime: Date.now(),
                 updatedAt: Date.now()
             });
-            await loadActiveLogs();
         } catch (e: any) {
             console.error('Failed to stop service: ', e);
         }
@@ -254,19 +264,25 @@ export function PcaMobileView() {
     const pcaActiveTaskStudent = pcaActiveTask ? students.find((s:any) => s.id === pcaActiveTask.studentId) : null;
 
     return (
-        <div className="flex flex-col min-h-screen bg-slate-50">
+        <div className="flex flex-col min-h-screen bg-slate-50 relative pb-16">
             <header className="bg-white border-b border-slate-200 p-4 sticky top-0 z-10 flex flex-col items-center relative">
+                {isOffline && (
+                    <div className="absolute top-0 left-0 w-full bg-red-600 text-white text-xs font-bold text-center py-1 truncate uppercase tracking-wider items-center flex justify-center z-50">
+                        <span className="animate-pulse h-2 w-2 rounded-full bg-white mr-2"></span>
+                        Offline Mode - Data will sync when reconnected
+                    </div>
+                )}
                 {token === 'login-bypass' && (
                     <button 
                         onClick={() => navigate('/pca-dashboard', { state: { explicit: true } })}
-                        className="absolute left-4 top-4 text-sm font-semibold text-blue-600 bg-blue-50 px-3 py-1 rounded-full"
+                        className={`absolute left-4 ${isOffline ? 'top-8' : 'top-4'} text-sm font-semibold text-blue-600 bg-blue-50 px-3 py-1 rounded-full`}
                     >
                         Change Room
                     </button>
                 )}
-                <h1 className="text-xl font-bold text-slate-800">{classroomName}</h1>
+                <h1 className={`text-xl font-bold text-slate-800 ${isOffline ? 'mt-4' : ''}`}>{classroomName}</h1>
                 <p className="text-xs font-bold text-slate-400 tracking-wider">PCA LOGGING VIEW</p>
-                <div className="absolute right-4 top-4">
+                <div className={`absolute right-4 ${isOffline ? 'top-8' : 'top-4'}`}>
                     <button 
                         onClick={async () => {
                             await auth.signOut();

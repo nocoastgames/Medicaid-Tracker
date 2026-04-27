@@ -65,6 +65,19 @@ export function ClassroomView() {
     format(new Date(), "yyyy-MM-dd"),
   );
 
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
+
   useEffect(() => {
     if (!user || !classroomId) return;
     loadClassroom();
@@ -195,6 +208,12 @@ export function ClassroomView() {
   return (
     <div className="w-full h-full">
       <div className="flex flex-col h-full flex-grow overflow-hidden print:hidden">
+        {isOffline && (
+            <div className="w-full bg-red-600 text-white text-xs font-bold text-center py-1 truncate uppercase tracking-wider items-center flex justify-center z-50">
+                <span className="animate-pulse h-2 w-2 rounded-full bg-white mr-2"></span>
+                Offline Mode - Data will sync when reconnected
+            </div>
+        )}
         <header className="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between shadow-sm flex-shrink-0">
           <div className="flex items-center space-x-4">
             <div className="bg-blue-600 p-2 rounded-lg">
@@ -760,6 +779,8 @@ function ServiceLogsManager({
   const [startTime, setStartTime] = useState("08:00");
   const [endTime, setEndTime] = useState("08:15");
 
+  const [editingLog, setEditingLog] = useState<any>(null);
+
   const addManualLog = async () => {
     if (!studentId || !pcaId || !date || !startTime || !endTime) return;
 
@@ -796,6 +817,36 @@ function ServiceLogsManager({
     } catch (e) {
       handleFirestoreError(e, "delete", `serviceLogs/${id}`, user);
     }
+  };
+
+  const saveEditLog = async () => {
+    if (!editingLog) return;
+    try {
+      const startD = new Date(`${editingLog.editDate}T${editingLog.editStartTime}`);
+      const endD = editingLog.editEndTime ? new Date(`${editingLog.editDate}T${editingLog.editEndTime}`) : null;
+
+      await updateDoc(doc(db, "serviceLogs", editingLog.id), {
+        date: editingLog.editDate,
+        studentId: editingLog.studentId,
+        pcaId: editingLog.pcaId,
+        serviceType: editingLog.serviceType,
+        startTime: startD.getTime(),
+        ...(endD ? { endTime: endD.getTime() } : {}),
+        updatedAt: Date.now()
+      });
+      setEditingLog(null);
+    } catch (e) {
+      handleFirestoreError(e, "update", `serviceLogs/${editingLog.id}`, user);
+    }
+  };
+
+  const startEditLog = (log: any) => {
+    setEditingLog({
+      ...log,
+      editDate: log.date || format(log.startTime, "yyyy-MM-dd"),
+      editStartTime: format(log.startTime, "HH:mm"),
+      editEndTime: log.endTime ? format(log.endTime, "HH:mm") : "",
+    });
   };
 
   const getPcaName = (id: string) =>
@@ -899,6 +950,53 @@ function ServiceLogsManager({
           </div>
         </CardContent>
       </Card>
+      
+      {editingLog && (
+        <Card className="border-amber-400 bg-amber-50">
+          <CardHeader>
+            <CardTitle className="text-lg text-amber-900">Edit Log Entry</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-amber-700 uppercase">Date</label>
+                <Input type="date" value={editingLog.editDate} onChange={(e) => setEditingLog({ ...editingLog, editDate: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-amber-700 uppercase">Student</label>
+                <select className="w-full h-10 px-3 border rounded-md" value={editingLog.studentId} onChange={(e) => setEditingLog({ ...editingLog, studentId: e.target.value })}>
+                  {students.map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-amber-700 uppercase">PCA</label>
+                <select className="w-full h-10 px-3 border rounded-md" value={editingLog.pcaId} onChange={(e) => setEditingLog({ ...editingLog, pcaId: e.target.value })}>
+                  {pcas.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-amber-700 uppercase">Service</label>
+                <select className="w-full h-10 px-3 border rounded-md" value={editingLog.serviceType} onChange={(e) => setEditingLog({ ...editingLog, serviceType: e.target.value })}>
+                  {SERVICES.map((srv) => <option key={srv} value={srv}>{srv}</option>)}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-amber-700 uppercase">Start Time</label>
+                <Input type="time" value={editingLog.editStartTime} onChange={(e) => setEditingLog({ ...editingLog, editStartTime: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-amber-700 uppercase">End Time</label>
+                <div className="flex space-x-2 w-full">
+                  <Input type="time" value={editingLog.editEndTime} onChange={(e) => setEditingLog({ ...editingLog, editEndTime: e.target.value })} />
+                  <Button className="shrink-0 bg-amber-600 hover:bg-amber-700 text-white" onClick={saveEditLog}>Save</Button>
+                  <Button variant="outline" className="shrink-0" onClick={() => setEditingLog(null)}>Cancel</Button>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>Historical Service Logs</CardTitle>
@@ -918,7 +1016,7 @@ function ServiceLogsManager({
             </TableHeader>
             <TableBody>
               {logs.map((log: any) => (
-                <TableRow key={log.id}>
+                <TableRow key={log.id} className={editingLog?.id === log.id ? "bg-amber-50" : ""}>
                   <TableCell>{log.date}</TableCell>
                   <TableCell className="font-medium">
                     {getStudentName(log.studentId)}
@@ -936,13 +1034,22 @@ function ServiceLogsManager({
                     )}
                   </TableCell>
                   <TableCell>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => deleteLog(log.id)}
-                    >
-                      Delete
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => startEditLog(log)}
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => deleteLog(log.id)}
+                      >
+                        Delete
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
