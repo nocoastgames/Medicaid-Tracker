@@ -42,6 +42,8 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import QRCode from "react-qr-code";
 
+import { ClassroomAnalytics } from './ClassroomAnalytics';
+
 export function ClassroomView() {
   const { classroomId } = useParams();
   const { user } = useAuth();
@@ -283,6 +285,12 @@ export function ClassroomView() {
               >
                 Print / Export
               </TabsTrigger>
+              <TabsTrigger
+                value="analytics"
+                className="text-sm font-bold tracking-tight data-[state=active]:text-blue-600 data-[state=active]:bg-blue-50 data-[state=active]:shadow-sm rounded-lg px-4"
+              >
+                Analytics
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="tracker" className="mt-0">
@@ -401,6 +409,10 @@ export function ClassroomView() {
                 setExportEndDate={setExportEndDate}
               />
             </TabsContent>
+
+            <TabsContent value="analytics">
+              <ClassroomAnalytics logs={allLogs} students={students} pcas={pcas} />
+            </TabsContent>
           </Tabs>
         </main>
         <footer className="h-12 bg-slate-800 text-slate-400 px-6 flex items-center justify-between text-[10px] font-medium tracking-widest uppercase flex-shrink-0">
@@ -444,6 +456,12 @@ function TrackerApp({
   const [selectedPca, setSelectedPca] = useState<any>(null);
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
   const [activeLogs, setActiveLogs] = useState<any[]>([]);
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     if (!classroomId) return;
@@ -665,30 +683,42 @@ function TrackerApp({
             {activeLogs.map((log) => {
               const pcaName = getPcaName(log.pcaId);
               const studentName = getStudentName(log.studentId);
-              // Simple duration string for active
-              const elapsedMins = Math.floor(
-                (Date.now() - log.startTime) / 60000,
-              );
+              const elapsedMins = Math.floor((now - log.startTime) / 60000);
+              const isOvertime = elapsedMins > 120;
+              
               return (
                 <div
                   key={log.id}
-                  className="bg-blue-50 border-2 border-blue-500 p-4 rounded-2xl shadow-sm mb-4"
+                  className={`border-2 p-4 rounded-2xl shadow-sm mb-4 ${
+                    isOvertime ? 'bg-red-50 border-red-500' : 'bg-blue-50 border-blue-500'
+                  }`}
                 >
                   <div className="flex justify-between items-start mb-2">
-                    <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-sm">
+                    <div className={`w-10 h-10 rounded-xl text-white flex items-center justify-center font-bold text-sm ${
+                      isOvertime ? 'bg-red-600' : 'bg-blue-600'
+                    }`}>
                       {studentName.substring(0, 2).toUpperCase()}
                     </div>
                   </div>
-                  <h3 className="text-md font-bold text-blue-900">
+                  <h3 className={`text-md font-bold ${
+                    isOvertime ? 'text-red-900' : 'text-blue-900'
+                  }`}>
                     {studentName}
                   </h3>
-                  <p className="text-[10px] text-blue-700 uppercase font-bold mb-2">
+                  <p className={`text-[10px] uppercase font-bold mb-2 ${
+                    isOvertime ? 'text-red-700' : 'text-blue-700'
+                  }`}>
                     {log.serviceType} • {pcaName}
                   </p>
-                  <div className="flex items-center text-blue-600 space-x-2 my-2">
-                    <span className="animate-pulse h-2 w-2 rounded-full bg-blue-600"></span>
-                    <span className="text-sm font-bold">
-                      Recording: {elapsedMins}m
+                  <div className={`flex items-center space-x-2 my-2 ${
+                    isOvertime ? 'text-red-600' : 'text-blue-600'
+                  }`}>
+                    <span className={`animate-pulse h-2 w-2 rounded-full ${
+                      isOvertime ? 'bg-red-600' : 'bg-blue-600'
+                    }`}></span>
+                    <span className="text-sm font-bold flex flex-col">
+                      <span>Recording: {elapsedMins}m</span>
+                      {isOvertime && <span className="text-xs font-bold text-red-500 mt-1 uppercase">⚠️ Forgot to Stop?</span>}
                     </span>
                   </div>
                   <button

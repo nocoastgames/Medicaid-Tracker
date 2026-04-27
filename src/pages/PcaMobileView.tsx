@@ -34,6 +34,48 @@ export function PcaMobileView() {
     const [reportDate, setReportDate] = useState(format(new Date(), 'yyyy-MM-dd'));
     const [reportLogs, setReportLogs] = useState<any[]>([]);
 
+    const [now, setNow] = useState(Date.now());
+
+    useEffect(() => {
+        const interval = setInterval(() => setNow(Date.now()), 60000);
+        return () => clearInterval(interval);
+    }, []);
+
+    useEffect(() => {
+        let wakeLock: any = null;
+        
+        const requestWakeLock = async () => {
+            try {
+                if ('wakeLock' in navigator) {
+                    wakeLock = await (navigator as any).wakeLock.request('screen');
+                    wakeLock.addEventListener('release', () => {
+                        console.log('Screen Wake Lock released:', wakeLock?.released);
+                    });
+                    console.log('Screen Wake Lock acquired:', !wakeLock.released);
+                }
+            } catch (err: any) {
+                console.error(`${err.name}, ${err.message}`);
+            }
+        };
+
+        requestWakeLock();
+
+        const handleVisibilityChange = async () => {
+            if (wakeLock !== null && document.visibilityState === 'visible') {
+                await requestWakeLock();
+            }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            if (wakeLock) {
+                wakeLock.release().catch(console.error);
+            }
+        };
+    }, []);
+
     useEffect(() => {
         setupSession();
     }, [classroomId, token]);
@@ -269,21 +311,32 @@ export function PcaMobileView() {
                             ))}
                         </div>
 
-                        {pcaActiveTask && (
+                        {pcaActiveTask && (() => {
+                            const elapsedMins = Math.floor((now - pcaActiveTask.startTime) / 60000);
+                            const isOvertime = elapsedMins > 120;
+                            return (
                             <div className="mb-6">
-                                <h3 className="text-sm font-bold text-amber-600 uppercase mb-3">Your Current Task</h3>
-                                <Card className="border-amber-200 bg-amber-50 shadow-none border-2 border-dashed">
+                                <h3 className={`text-sm font-bold uppercase mb-3 ${isOvertime ? 'text-red-600' : 'text-amber-600'}`}>Your Current Task</h3>
+                                <Card className={`shadow-none border-2 border-dashed ${isOvertime ? 'border-red-400 bg-red-50' : 'border-amber-200 bg-amber-50'}`}>
                                     <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                                         <div>
                                             <p className="font-bold text-slate-800">{pcaActiveTask.serviceType}</p>
                                             <p className="text-sm text-slate-800 font-semibold mb-1">with {pcaActiveTaskStudent?.name || "Student"}</p>
-                                            <p className="text-xs text-slate-500">Started at {format(pcaActiveTask.startTime, 'h:mm a')}</p>
+                                            <div className={`mt-2 font-semibold text-sm flex items-center space-x-2 ${
+                                                isOvertime ? 'text-red-600' : 'text-amber-700'
+                                            }`}>
+                                                <span className={`animate-pulse h-2 w-2 rounded-full ${
+                                                    isOvertime ? 'bg-red-600' : 'bg-amber-600'
+                                                }`}></span>
+                                                <span>Running: {elapsedMins}m</span>
+                                                {isOvertime && <span className="font-bold ml-2">⚠️ Forgot to Stop?</span>}
+                                            </div>
                                         </div>
-                                        <Button onClick={() => stopService(pcaActiveTask.id)} className="bg-red-500 hover:bg-red-600 font-bold">Stop Task</Button>
+                                        <Button onClick={() => stopService(pcaActiveTask.id)} className="bg-red-500 hover:bg-red-600 font-bold py-6 px-8 text-lg">Stop Task</Button>
                                     </CardContent>
                                 </Card>
                             </div>
-                        )}
+                        )})}
                     </div>
                 )}
 
@@ -321,17 +374,24 @@ export function PcaMobileView() {
                                     <div>
                                         <h3 className="text-sm font-bold text-amber-600 uppercase mb-3">Currently Active</h3>
                                         <div className="space-y-3">
-                                            {currentActiveForSelection.map((log:any) => (
-                                                <Card key={log.id} className="border-amber-200 bg-amber-50 shadow-none border-2 border-dashed">
-                                                    <CardContent className="p-4 flex items-center justify-between">
+                                            {currentActiveForSelection.map((log:any) => {
+                                                const elapsedMins = Math.floor((now - log.startTime) / 60000);
+                                                const isOvertime = elapsedMins > 120;
+                                                return (
+                                                <Card key={log.id} className={`shadow-none border-2 border-dashed ${isOvertime ? 'border-red-400 bg-red-50' : 'border-amber-200 bg-amber-50'}`}>
+                                                    <CardContent className="p-4 flex flex-col items-start gap-4">
                                                         <div>
                                                             <p className="font-bold text-slate-800">{log.serviceType}</p>
-                                                            <p className="text-sm text-slate-500">Started at {format(log.startTime, 'h:mm a')}</p>
+                                                            <div className={`mt-1 font-semibold text-sm flex items-center space-x-2 ${isOvertime ? 'text-red-600' : 'text-amber-700'}`}>
+                                                                <span className={`animate-pulse h-2 w-2 rounded-full ${isOvertime ? 'bg-red-600' : 'bg-amber-600'}`}></span>
+                                                                <span>Running: {elapsedMins}m</span>
+                                                                {isOvertime && <span className="font-bold ml-2 text-xs">⚠️ Overtime</span>}
+                                                            </div>
                                                         </div>
-                                                        <Button onClick={() => stopService(log.id)} className="bg-red-500 hover:bg-red-600 font-bold">Stop</Button>
+                                                        <Button onClick={() => stopService(log.id)} className="w-full bg-red-500 hover:bg-red-600 font-bold py-6 text-xl shadow-lg">STOP {log.serviceType}</Button>
                                                     </CardContent>
                                                 </Card>
-                                            ))}
+                                            )})}
                                         </div>
                                     </div>
                                 )}
